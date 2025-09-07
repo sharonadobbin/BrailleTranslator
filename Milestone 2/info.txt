@@ -1,0 +1,1 @@
+Milestone 2 - Architecture Design: Activity Diagram, Sequence Diagram, Use Case Diagrams, Collaboration Diagram
