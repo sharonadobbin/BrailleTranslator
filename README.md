@@ -1,4 +1,4 @@
-This repository contains the Phase 1 implementation of our Final Year Project titled "AI Powered Automatic Braille Translation".
+This repository contains the Phase 1 implementation as well as Phase 2 progress of our Final Year Project titled "AI Powered Automatic Braille Translation".
 
 🎯 Project Objective
 To develop an intelligent system that automatically translates text (typed or spoken) into Braille script for visually impaired users.
@@ -45,7 +45,5 @@ gui_braille.py: Complete Python script with GUI, text-to-Braille logic, and voic
 
 💡 Future Plans (Phase 2+)
 Integration of AI models for smarter language processing.
-
 Optical Character Recognition (OCR) for image-to-Braille conversion.
-
 Enhanced user interface and cross-platform support.
