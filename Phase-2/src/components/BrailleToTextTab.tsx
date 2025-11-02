@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Volume2 } from "lucide-react";
+import { FileText, Volume2, Keyboard } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { BrailleQwertyKeyboard } from "./BrailleQwertyKeyboard";
 
 const BrailleDot = ({ position, isPressed, onPress }: { position: number; isPressed: boolean; onPress: () => void }) => (
   <button
@@ -21,6 +22,7 @@ export const BrailleToTextTab = () => {
   const [brailleInput, setBrailleInput] = useState("");
   const [textOutput, setTextOutput] = useState("");
   const [activeDots, setActiveDots] = useState<boolean[]>([false, false, false, false, false, false]);
+  const [showKeyboard, setShowKeyboard] = useState(false);
   const { toast } = useToast();
 
   const toggleDot = (index: number) => {
@@ -125,8 +127,23 @@ export const BrailleToTextTab = () => {
     });
   };
 
+  const handleKeyboardKeyClick = (char: string) => {
+    if (char === "BACKSPACE") {
+      setBrailleInput(prev => prev.slice(0, -1));
+    } else {
+      setBrailleInput(prev => prev + char);
+    }
+  };
+
   return (
-    <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+    <>
+      {showKeyboard && (
+        <BrailleQwertyKeyboard
+          onKeyClick={handleKeyboardKeyClick}
+          onClose={() => setShowKeyboard(false)}
+        />
+      )}
+      <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
       {/* Braille Input Section */}
       <Card className="p-8 bg-gradient-card shadow-soft border-0">
         <h2 className="text-2xl font-semibold text-foreground mb-6">Braille Input</h2>
@@ -178,9 +195,20 @@ export const BrailleToTextTab = () => {
 
         {/* Braille Input Display */}
         <div className="space-y-4">
-          <label htmlFor="brailleInput" className="block text-sm font-medium text-foreground">
-            Braille Input
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="brailleInput" className="block text-sm font-medium text-foreground">
+              Braille Input
+            </label>
+            <Button
+              onClick={() => setShowKeyboard(!showKeyboard)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Keyboard className="h-4 w-4" />
+              {showKeyboard ? "Hide Keyboard" : "Show Keyboard"}
+            </Button>
+          </div>
           <Textarea
             id="brailleInput"
             value={brailleInput}
@@ -229,6 +257,7 @@ export const BrailleToTextTab = () => {
           </Button>
         </div>
       </Card>
-    </div>
+      </div>
+    </>
   );
 };
