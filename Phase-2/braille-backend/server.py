@@ -1,5 +1,10 @@
 # server.py (or app.py)
 
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"
+
+from nlp_processor import preprocess_text_for_braille, postprocess_braille_to_text
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
@@ -25,10 +30,13 @@ def handle_grade1_translation():
             return jsonify({"message": "Missing 'text' in request body"}), 400
             
         input_text = data['text']
-        
-        # Call the dedicated Grade 1 translation module
-        braille_output = translate_grade1(input_text)
-        
+
+# NLP preprocessing before translation
+        processed_text = preprocess_text_for_braille(input_text)
+
+# Then call the Grade 1 translation
+        braille_output = translate_grade1(processed_text)
+
         # Return the result in the format the frontend expects: { "braille": "..." }
         return jsonify({"braille": braille_output})
 
@@ -45,15 +53,40 @@ def handle_grade2_translation():
             return jsonify({"message": "Missing 'text' in request body"}), 400
             
         input_text = data['text']
-        
-        # Call the dedicated Grade 2 translation module
-        braille_output = translate_grade2(input_text)
+
+# NLP preprocessing before translation
+        processed_text = preprocess_text_for_braille(input_text)
+
+# Then call the Grade 2 translation
+        braille_output = translate_grade2(processed_text)
         
         return jsonify({"braille": braille_output})
 
     except Exception as e:
         app.logger.error(f"Error during Grade 2 translation: {e}")
         return jsonify({"message": "Internal Server Error during translation"}), 500
+
+
+from PIL import Image
+import pytesseract
+import io
+import base64
+
+@app.route('/api/ocr', methods=['POST'])
+def ocr_image():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'message': 'No file uploaded'}), 400
+
+        image_file = request.files['file']
+        img = Image.open(image_file.stream)
+
+        extracted_text = pytesseract.image_to_string(img)
+
+        return jsonify({'text': extracted_text.strip()})
+    except Exception as e:
+        app.logger.error(f"OCR error: {e}")
+        return jsonify({'message': 'Internal Server Error during OCR'}), 500
 
 
 if __name__ == '__main__':
