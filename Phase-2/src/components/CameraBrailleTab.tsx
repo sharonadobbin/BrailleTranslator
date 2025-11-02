@@ -1,21 +1,20 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Upload, Volume2, Copy, Download, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { pipeline } from '@huggingface/transformers';
+import axios from "axios";
 
-let ocrPipeline: any = null;
-let modelLoadingPromise: Promise<any> | null = null;
+const BASE_URL = "http://127.0.0.1:5000"; // Flask backend URL
 
-// Braille patterns mapping for text-to-braille
+// Braille mapping
 const textToBraille: { [key: string]: string } = {
-  'a': '⠁', 'b': '⠃', 'c': '⠉', 'd': '⠙', 'e': '⠑', 'f': '⠋', 'g': '⠛', 'h': '⠓', 
+  'a': '⠁', 'b': '⠃', 'c': '⠉', 'd': '⠙', 'e': '⠑', 'f': '⠋', 'g': '⠛', 'h': '⠓',
   'i': '⠊', 'j': '⠚', 'k': '⠅', 'l': '⠇', 'm': '⠍', 'n': '⠝', 'o': '⠕', 'p': '⠏',
   'q': '⠟', 'r': '⠗', 's': '⠎', 't': '⠞', 'u': '⠥', 'v': '⠧', 'w': '⠺', 'x': '⠭',
-  'y': '⠽', 'z': '⠵', ' ': '⠀', '0': '⠚', '1': '⠁', '2': '⠃', '3': '⠉', '4': '⠙', 
+  'y': '⠽', 'z': '⠵', ' ': '⠀', '0': '⠚', '1': '⠁', '2': '⠃', '3': '⠉', '4': '⠙',
   '5': '⠑', '6': '⠋', '7': '⠛', '8': '⠓', '9': '⠊'
 };
 
@@ -26,29 +25,9 @@ export const CameraBrailleTab = () => {
   const [extractedText, setExtractedText] = useState("");
   const [brailleOutput, setBrailleOutput] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const { toast } = useToast();
-
-  // Initialize OCR model
-  const initializeModel = useCallback(async () => {
-    if (ocrPipeline) return;
-    if (modelLoadingPromise) return modelLoadingPromise;
-
-    try {
-      modelLoadingPromise = pipeline('image-to-text', 'Xenova/trocr-base-printed');
-      ocrPipeline = await modelLoadingPromise;
-    } catch (error) {
-      console.error('Error loading OCR model:', error);
-    } finally {
-      modelLoadingPromise = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    initializeModel();
-  }, [initializeModel]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -66,18 +45,17 @@ export const CameraBrailleTab = () => {
       });
       return;
     }
-    
+
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
       const imageDataUrl = e.target?.result as string;
       setUploadedImage(imageDataUrl);
       setExtractedText("");
       setBrailleOutput("");
-      
-      // Automatically extract text
-      await extractTextFromImage(imageDataUrl);
     };
     reader.readAsDataURL(file);
+
+    await extractTextFromBackend(file);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -93,54 +71,54 @@ export const CameraBrailleTab = () => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files?.[0];
     if (file) {
       processFile(file);
     }
   };
 
-  const extractTextFromImage = async (imageDataUrl: string) => {
-    if (!ocrPipeline) {
-      toast({
-        title: "Not ready",
-        description: "OCR model is still loading. Please wait.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  // ✅ New: Send image to Flask OCR endpoint
+  const extractTextFromBackend = async (file: File) => {
     setIsProcessing(true);
     setProcessingProgress(0);
-    
+
+    const formData = new FormData();
+    formData.append("file", file);
+
     try {
       toast({
         title: "Extracting text",
-        description: "Processing image...",
+        description: "Sending image to OCR backend...",
       });
 
-      // Simulate progress
+      // Simulate progress bar
       const progressInterval = setInterval(() => {
-        setProcessingProgress(prev => Math.min(prev + 10, 90));
+        setProcessingProgress((prev) => Math.min(prev + 15, 90));
       }, 200);
 
-      const result = await ocrPipeline(imageDataUrl);
-      const detectedText = result.generated_text || "";
-      
+      const response = await axios.post(`${BASE_URL}/api/ocr`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
       clearInterval(progressInterval);
       setProcessingProgress(100);
+
+      const detectedText = response.data.text || "";
 
       setExtractedText(detectedText);
 
       toast({
-        title: "Text extracted",
-        description: `Extracted: "${detectedText.substring(0, 50)}${detectedText.length > 50 ? '...' : ''}"`,
+        title: "Text extracted successfully",
+        description: detectedText
+          ? `Extracted: "${detectedText.substring(0, 50)}${detectedText.length > 50 ? "..." : ""}"`
+          : "No readable text found in the image.",
       });
     } catch (error) {
-      console.error('Error processing image:', error);
+      console.error("Error during OCR:", error);
       toast({
-        title: "Extraction failed", 
-        description: "Could not extract text from the image. Please try again.",
+        title: "OCR failed",
+        description: "Unable to extract text from the image.",
         variant: "destructive",
       });
     } finally {
@@ -158,10 +136,12 @@ export const CameraBrailleTab = () => {
       return;
     }
 
-    const brailleTranslation = extractedText.toLowerCase().split('').map(char => 
-      textToBraille[char] || char
-    ).join('');
-    
+    const brailleTranslation = extractedText
+      .toLowerCase()
+      .split("")
+      .map((char) => textToBraille[char] || char)
+      .join("");
+
     setBrailleOutput(brailleTranslation);
 
     toast({
@@ -186,18 +166,18 @@ export const CameraBrailleTab = () => {
 
   const downloadBraille = () => {
     if (!brailleOutput) return;
-    const blob = new Blob([brailleOutput], { type: 'text/plain' });
+    const blob = new Blob([brailleOutput], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'braille-output.txt';
+    a.download = "braille-output.txt";
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const printBraille = () => {
     if (!brailleOutput) return;
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(`
         <html>
@@ -228,10 +208,7 @@ export const CameraBrailleTab = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full"
-            >
+            <Button onClick={() => fileInputRef.current?.click()} className="w-full">
               <Upload className="h-4 w-4 mr-2" />
               Select Image (.jpg, .jpeg, .png)
             </Button>
@@ -242,31 +219,27 @@ export const CameraBrailleTab = () => {
               onChange={handleFileUpload}
               className="hidden"
             />
-            
+
             {/* Drag and Drop Zone */}
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`
-                border-2 border-dashed rounded-lg p-8 text-center transition-colors
-                ${isDragging 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-muted-foreground/25 hover:border-primary/50'
-                }
-              `}
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-primary/50"
+              }`}
             >
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Drag and drop an image here
-              </p>
+              <p className="text-sm text-muted-foreground">Drag and drop an image here</p>
             </div>
-            
+
             {uploadedImage && (
               <div className="space-y-4">
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded image" 
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded image"
                   className="max-w-full h-auto rounded-lg border"
                 />
               </div>
@@ -280,15 +253,11 @@ export const CameraBrailleTab = () => {
         <Card>
           <CardHeader>
             <CardTitle>Extracting Text</CardTitle>
-            <CardDescription>
-              Processing image and extracting text...
-            </CardDescription>
+            <CardDescription>Processing image and extracting text...</CardDescription>
           </CardHeader>
           <CardContent>
             <Progress value={processingProgress} className="w-full" />
-            <p className="text-sm text-muted-foreground mt-2">
-              {processingProgress}% complete
-            </p>
+            <p className="text-sm text-muted-foreground mt-2">{processingProgress}% complete</p>
           </CardContent>
         </Card>
       )}
@@ -298,9 +267,7 @@ export const CameraBrailleTab = () => {
         <Card>
           <CardHeader>
             <CardTitle>Extracted Text</CardTitle>
-            <CardDescription>
-              Text extracted from the uploaded image
-            </CardDescription>
+            <CardDescription>Text extracted from the uploaded image</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
@@ -321,16 +288,14 @@ export const CameraBrailleTab = () => {
         <Card>
           <CardHeader>
             <CardTitle>Braille Translation</CardTitle>
-            <CardDescription>
-              The extracted text converted to Braille
-            </CardDescription>
+            <CardDescription>The extracted text converted to Braille</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
               value={brailleOutput}
               readOnly
               className="min-h-[120px] font-mono text-lg"
-              style={{ fontFamily: 'monospace, serif' }}
+              style={{ fontFamily: "monospace, serif" }}
             />
 
             <div className="flex flex-wrap gap-2">
