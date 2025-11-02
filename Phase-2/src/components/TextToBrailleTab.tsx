@@ -1,27 +1,27 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, FileText, Download, Printer } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-// IMPORT YOUR NEW API UTILITY
 import { fetchBrailleTranslation } from "@/lib/brailleApi"; 
 
 export const TextToBrailleTab = () => {
   const [text, setText] = useState("");
   const [isListening, setIsListening] = useState(false);
-  
   const [brailleGrade, setBrailleGrade] = useState<1 | 2>(1);
   const [brailleOutput, setBrailleOutput] = useState("");
-  
-  // ADD NEW STATE FOR LOADING
-  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
 
+  // 🔹 Keep reference to the SpeechRecognition instance
+  const recognitionRef = useRef<any>(null);
 
+  // ✅ FIXED: Working Start/Stop Voice Input
   const handleVoiceInput = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    // Check if browser supports it
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       toast({
         title: "Speech recognition not supported",
         description: "Your browser doesn't support speech recognition.",
@@ -30,16 +30,29 @@ export const TextToBrailleTab = () => {
       return;
     }
 
+    // If already listening → stop immediately
     if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current.onend = null; // Prevent auto-restart
+      }
       setIsListening(false);
+      toast({
+        title: "Stopped Recording",
+        description: "Speech recognition has been stopped.",
+      });
       return;
     }
 
-    const SpeechRecognitionAPI = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    // Otherwise, start listening
+    const SpeechRecognitionAPI =
+      (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     const recognition = new SpeechRecognitionAPI();
+    recognitionRef.current = recognition;
+
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = "en-US";
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -49,8 +62,8 @@ export const TextToBrailleTab = () => {
       });
     };
 
-    recognition.onresult = (event) => {
-      let finalTranscript = '';
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
@@ -58,27 +71,27 @@ export const TextToBrailleTab = () => {
         }
       }
       if (finalTranscript) {
-        setText(prev => prev + finalTranscript);
+        setText((prev) => prev + finalTranscript);
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (e: any) => {
       setIsListening(false);
       toast({
         title: "Speech recognition error",
-        description: "There was an error with speech recognition.",
+        description: e.error || "There was an error with speech recognition.",
         variant: "destructive",
       });
     };
 
     recognition.onend = () => {
-      setIsListening(false);
+      if (isListening) setIsListening(false);
     };
 
     recognition.start();
   };
 
-  // REWRITTEN TRANSLATION HANDLER TO USE THE BACKEND API
+  // 🧠 Translate text to Braille using backend API
   const handleTextToBraille = async () => {
     if (!text.trim()) {
       toast({
@@ -90,39 +103,33 @@ export const TextToBrailleTab = () => {
       return;
     }
 
-    setIsLoading(true); // Start loading
-    setBrailleOutput("Translating... Please wait."); // User feedback
+    setIsLoading(true);
+    setBrailleOutput("Translating... Please wait.");
 
     try {
-      // Call the new API utility, which chooses Grade 1 or Grade 2 endpoint
       const translatedBraille = await fetchBrailleTranslation(text, brailleGrade);
-      
       setBrailleOutput(translatedBraille);
 
       toast({
         title: "Translation Complete",
         description: `Text converted to Braille successfully (Grade ${brailleGrade}).`,
       });
-
     } catch (error) {
       console.error("Translation error:", error);
-      
-      // Use the error message from the API utility
       setBrailleOutput(String(error) || "Translation failed due to an unknown error.");
-      
       toast({
         title: "Translation Failed",
         description: "Could not connect to or process the translation via the backend service.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false); // Stop loading
+      setIsLoading(false);
     }
   };
 
-
+  // 🧾 Download .TXT
   const handleDownloadTxt = () => {
-    if (!brailleOutput.trim() || isLoading) { // Also disable if loading
+    if (!brailleOutput.trim() || isLoading) {
       toast({
         title: "No content to download",
         description: "Please translate some text first.",
@@ -131,17 +138,12 @@ export const TextToBrailleTab = () => {
       return;
     }
 
-    const formattedContent = `Text:
-${text}
-
-Translated Braille:
-${brailleOutput}`;
-
-    const blob = new Blob([formattedContent], { type: 'text/plain' });
+    const formattedContent = `Text:\n${text}\n\nTranslated Braille:\n${brailleOutput}`;
+    const blob = new Blob([formattedContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'translated_braille.txt';
+    link.download = "translated_braille.txt";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -153,8 +155,9 @@ ${brailleOutput}`;
     });
   };
 
+  // 🧾 Download .BRF
   const handleDownloadBrf = () => {
-    if (!brailleOutput.trim() || isLoading) { // Also disable if loading
+    if (!brailleOutput.trim() || isLoading) {
       toast({
         title: "No content to download",
         description: "Please translate some text first.",
@@ -163,17 +166,12 @@ ${brailleOutput}`;
       return;
     }
 
-    const formattedContent = `Text:
-${text}
-
-Translated Braille:
-${brailleOutput}`;
-
-    const blob = new Blob([formattedContent], { type: 'text/plain' });
+    const formattedContent = `Text:\n${text}\n\nTranslated Braille:\n${brailleOutput}`;
+    const blob = new Blob([formattedContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'translated_braille.brf';
+    link.download = "translated_braille.brf";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -185,8 +183,9 @@ ${brailleOutput}`;
     });
   };
 
+  // 🖨️ Print
   const handlePrint = () => {
-    if (!brailleOutput.trim() || isLoading) { // Also disable if loading
+    if (!brailleOutput.trim() || isLoading) {
       toast({
         title: "No content to print",
         description: "Please translate some text first.",
@@ -232,16 +231,13 @@ ${brailleOutput}`;
             <h1>Braille Translation Output</h1>
             <p>Generated by AI-Powered Braille Translation System</p>
           </div>
-          <div class="content">Text:
-${text}
-
-Translated Braille:</div>
+          <div class="content">Text:\n${text}\n\nTranslated Braille:</div>
           <div class="braille-content">${brailleOutput}</div>
         </body>
       </html>
     `;
 
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(printContent);
       printWindow.document.close();
@@ -260,7 +256,7 @@ Translated Braille:</div>
       {/* Input Section */}
       <Card className="p-8 bg-gradient-card shadow-soft border-0">
         <h2 className="text-2xl font-semibold text-foreground mb-6">Input</h2>
-        
+
         {/* Braille Grade Selection */}
         <div className="space-y-4 mb-8">
           <label className="block text-sm font-medium text-foreground">
@@ -271,8 +267,7 @@ Translated Braille:</div>
               onClick={() => setBrailleGrade(1)}
               variant={brailleGrade === 1 ? "default" : "outline"}
               className="btn-uniform flex-1"
-              aria-pressed={brailleGrade === 1}
-              disabled={isLoading} // Disable while loading
+              disabled={isLoading}
             >
               Grade 1
             </Button>
@@ -280,17 +275,16 @@ Translated Braille:</div>
               onClick={() => setBrailleGrade(2)}
               variant={brailleGrade === 2 ? "default" : "outline"}
               className="btn-uniform flex-1"
-              aria-pressed={brailleGrade === 2}
-              disabled={isLoading} // Disable while loading
+              disabled={isLoading}
             >
               Grade 2
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Grade 1 is a letter-for-letter transcription of the alphabet without contractions. Grade 2 uses contractions and abbreviations to save space and increase reading speed.
+            Grade 1 is a letter-for-letter transcription. Grade 2 uses contractions and abbreviations.
           </p>
         </div>
-        
+
         {/* Text Input */}
         <div className="space-y-4 mb-6">
           <label htmlFor="textInput" className="block text-sm font-medium text-foreground">
@@ -302,28 +296,25 @@ Translated Braille:</div>
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="min-h-[120px] text-base resize-none focus:ring-2 focus:ring-primary"
-            disabled={isLoading} // Disable while loading
+            disabled={isLoading}
           />
         </div>
 
-
         {/* Voice Input */}
         <div className="space-y-4">
-          <label className="block text-sm font-medium text-foreground">
-            Voice Input
-          </label>
+          <label className="block text-sm font-medium text-foreground">Voice Input</label>
           <Button
             onClick={handleVoiceInput}
             variant={isListening ? "destructive" : "outline"}
             className="btn-uniform flex items-center gap-2"
             aria-pressed={isListening}
-            disabled={isLoading} // Disable while loading
+            disabled={isLoading}
           >
             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             {isListening ? "Stop Recording" : "Voice Input"}
           </Button>
           <p className="text-sm text-muted-foreground">
-            Click to start recording. Speak clearly for best results.
+            Click to start or stop voice input. Speak clearly for best results.
           </p>
         </div>
       </Card>
@@ -331,8 +322,7 @@ Translated Braille:</div>
       {/* Output Section */}
       <Card className="p-8 bg-gradient-card shadow-soft border-0">
         <h2 className="text-2xl font-semibold text-foreground mb-6">Braille Output</h2>
-        
-        {/* Braille Display */}
+
         <div className="space-y-4 mb-8">
           <label htmlFor="brailleOutput" className="block text-sm font-medium text-foreground">
             Braille Translation
@@ -346,52 +336,29 @@ Translated Braille:</div>
           />
         </div>
 
-        {/* Action Buttons */}
         <div className="mb-8">
           <Button
             onClick={handleTextToBraille}
             className="btn-uniform flex items-center gap-2 w-full"
-            // ADDED DISABLED STATE AND LOADING TEXT
-            disabled={isLoading || !text.trim()} 
+            disabled={isLoading || !text.trim()}
           >
             <FileText className="w-4 h-4" />
             {isLoading ? "Translating..." : "Text to Braille"}
           </Button>
         </div>
 
-        {/* Export Section */}
+        {/* Export Buttons */}
         <div className="pt-6 border-t border-border">
           <h3 className="text-lg font-medium text-foreground mb-4">Export & Print</h3>
-          
           <div className="grid grid-cols-1 gap-4">
-            <Button
-              onClick={handleDownloadTxt}
-              variant="outline"
-              className="btn-uniform flex items-center gap-2"
-              disabled={isLoading} // Disable while loading
-            >
-              <Download className="w-4 h-4" />
-              Download as .TXT
+            <Button onClick={handleDownloadTxt} variant="outline" className="btn-uniform flex items-center gap-2" disabled={isLoading}>
+              <Download className="w-4 h-4" /> Download as .TXT
             </Button>
-            
-            <Button
-              onClick={handleDownloadBrf}
-              variant="outline"
-              className="btn-uniform flex items-center gap-2"
-              disabled={isLoading} // Disable while loading
-            >
-              <Download className="w-4 h-4" />
-              Download as .BRF
+            <Button onClick={handleDownloadBrf} variant="outline" className="btn-uniform flex items-center gap-2" disabled={isLoading}>
+              <Download className="w-4 h-4" /> Download as .BRF
             </Button>
-            
-            <Button
-              onClick={handlePrint}
-              variant="outline"
-              className="btn-uniform flex items-center gap-2"
-              disabled={isLoading} // Disable while loading
-            >
-              <Printer className="w-4 h-4" />
-              Print
+            <Button onClick={handlePrint} variant="outline" className="btn-uniform flex items-center gap-2" disabled={isLoading}>
+              <Printer className="w-4 h-4" /> Print
             </Button>
           </div>
         </div>
