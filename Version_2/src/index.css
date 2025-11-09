@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* AI-Powered Braille Translation System Design System */
+
+@layer base {
+  :root {
+    /* Core Background & Text */
+    --background: 0 0% 98%;
+    --foreground: 215 28% 17%;
+
+    /* Card System */
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
+
+    /* Popover System */
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 17%;
+
+    /* Primary - Pink/Magenta */
+    --primary: 338 85% 46%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 338 85% 36%;
+
+    /* Secondary - Soft Blue-Gray */
+    --secondary: 210 16% 93%;
+    --secondary-foreground: 215 28% 17%;
+
+    /* Muted - Subtle grays */
+    --muted: 220 13% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent - Pink/Magenta */
+    --accent: 338 85% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive - Accessible red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Input */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 338 85% 46%;
+
+    /* Border radius */
+    --radius: 0.75rem;
+
+    /* Custom gradients for hero */
+    --gradient-hero: linear-gradient(135deg, hsl(338 85% 46%), hsl(338 85% 52%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 13% 98%));
+    
+    /* Shadows for depth */
+    --shadow-soft: 0 4px 20px -2px hsl(215 28% 17% / 0.08);
+    --shadow-medium: 0 8px 30px -4px hsl(215 28% 17% / 0.12);
+    
+    /* Animation timings */
+    --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Consistent button dimensions */
+    --button-height: 3rem;
+    --button-padding-x: 1.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 338 85% 46%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 338 85% 46%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 338 85% 46%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 338 85% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 338 85% 46%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 338 85% 46%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 338 85% 46%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Consistent button styling */
+  .btn-uniform {
+    @apply h-12 px-6 text-base font-medium transition-all duration-200;
+  }
+}
